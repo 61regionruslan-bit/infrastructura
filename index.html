@@ -96,7 +96,7 @@
         const SUPABASE_URL = "https://uqrlmgsglasbigifsgdw.supabase.co/rest/v1/";
         const SUPABASE_KEY = "sb_publishable_SiCyHcMqCZLZzg4spTYc4Q_ChBwdjFe";
 
-        const supabase = jsonDoc = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         // Получение даты с сервера и обновление экрана
         async function updateCounter() {
