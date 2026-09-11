@@ -77,7 +77,7 @@
 <body>
 
     <div class="counter-card" id="card">
-        <div class="title">Статус инфраструктуры</div>
+        <div class="title">Статус infrastructure</div>
         <div class="number" id="days-counter">...</div>
         <div class="subtitle" id="days-text">установление связи...</div>
     </div>
@@ -85,14 +85,13 @@
     <button class="incident-btn" onclick="registerIncident()">Сбой!</button>
 
     <script>
-        // Данные вашей базы данных
-        const URL = "https://uqrlmgsglasbigifsgdw.supabase.co";
+        // === ЖЕСТКИЕ ССЫЛКИ ДЛЯ СВЯЗИ ===
+        const FULL_API_URL = "https://uqrlmgsglasbigifsgdw.supabase.co";
         const KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxcmxtZ3NnbGFzYmlnaWZzZ2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkxNDE4MjMsImV4cCI6MjI0NDcxNzgyM30.WKHQxVArYfsdhv1Zt5V8hB3_NJyG_nuoNzDRBs8WMI8";
 
-        // Прямой fetch-запрос к Supabase без использования тяжелых внешних библиотек
         async function updateCounter() {
             try {
-                const response = await fetch(`${URL}?id=eq.1`, {
+                const response = await fetch(FULL_API_URL, {
                     method: 'GET',
                     headers: {
                         'apikey': KEY,
@@ -100,12 +99,12 @@
                     }
                 });
 
-                if (!response.ok) throw new Error('Ошибка сети или ключа RLS');
+                if (!response.ok) throw new Error('Сервер вернул ошибку ' + response.status);
                 
                 const data = await response.json();
                 
                 if (!data || data.length === 0) {
-                    document.getElementById('days-text').innerText = "Ошибка: Строка id=1 отсутствует";
+                    document.getElementById('days-text').innerText = "Ошибка: Запись не найдена";
                     return;
                 }
 
@@ -140,7 +139,7 @@
                 const todayStr = new Date().toISOString().split('T')[0];
                 
                 try {
-                    const response = await fetch(`${URL}?id=eq.1`, {
+                    const response = await fetch(FULL_API_URL, {
                         method: 'PATCH',
                         headers: {
                             'apikey': KEY,
@@ -151,7 +150,7 @@
                         body: JSON.stringify({ last_incident_date: todayStr })
                     });
 
-                    if (!response.ok) throw new Error('Не удалось обнулить');
+                    if (!response.ok) throw new Error('Код ответа ' + response.status);
                     updateCounter();
                 } catch (err) {
                     alert("Ошибка при сбросе: " + err.message);
