@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Мониторинг инфраструктуры</title>
-    <!-- Подключаем стабильную версию библиотеки Supabase -->
-<script src="https://cloudflare.com"></script>
     <style>
         body {
             background-color: #121212;
@@ -87,24 +85,27 @@
     <button class="incident-btn" onclick="registerIncident()">Сбой!</button>
 
     <script>
-        // === ВАШИ ПРАВИЛЬНЫЕ КЛЮЧИ SUPABASE (БЕЗ ЛИШНИХ ХВОСТОВ) ===
-        const SUPABASE_URL = "https://uqrlmgsglasbigifsgdw.supabase.co"; 
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxcmxtZ3NnbGFzYmlnaWZzZ2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkxNDE4MjMsImV4cCI6MjI0NDcxNzgyM30.WKHQxVArYfsdhv1Zt5V8hB3_NJyG_nuoNzDRBs8WMI8"; 
+        // Данные вашей базы данных
+        const URL = "https://uqrlmgsglasbigifsgdw.supabase.co";
+        const KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxcmxtZ3NnbGFzYmlnaWZzZ2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkxNDE4MjMsImV4cCI6MjI0NDcxNzgyM30.WKHQxVArYfsdhv1Zt5V8hB3_NJyG_nuoNzDRBs8WMI8";
 
-        // Инициализация строго через глобальный объект библиотеки
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
+        // Прямой fetch-запрос к Supabase без использования тяжелых внешних библиотек
         async function updateCounter() {
             try {
-                const { data, error } = await supabaseClient
-                    .from('status_counter')
-                    .select('last_incident_date')
-                    .eq('id', 1);
+                const response = await fetch(`${URL}?id=eq.1`, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': KEY,
+                        'Authorization': `Bearer ${KEY}`
+                    }
+                });
 
-                if (error) throw error;
+                if (!response.ok) throw new Error('Ошибка сети или ключа RLS');
+                
+                const data = await response.json();
                 
                 if (!data || data.length === 0) {
-                    document.getElementById('days-text').innerText = "Ошибка: Строка id=1 не найдена в БД";
+                    document.getElementById('days-text').innerText = "Ошибка: Строка id=1 отсутствует";
                     return;
                 }
 
@@ -129,8 +130,8 @@
                 
                 document.getElementById('days-text').innerText = getDaysWord(resultDays) + " без сбоев";
             } catch (err) {
-                console.error("Детали ошибки:", err);
-                document.getElementById('days-text').innerText = "Ошибка: " + (err.message || "нет связи с БД");
+                console.error(err);
+                document.getElementById('days-text').innerText = "Ошибка подключения к БД";
             }
         }
 
@@ -138,15 +139,22 @@
             if (confirm("Вы уверены, что хотите обнулить счетчик для всей команды?")) {
                 const todayStr = new Date().toISOString().split('T')[0];
                 
-                const { error } = await supabaseClient
-                    .from('status_counter')
-                    .update({ last_incident_date: todayStr })
-                    .eq('id', 1);
+                try {
+                    const response = await fetch(`${URL}?id=eq.1`, {
+                        method: 'PATCH',
+                        headers: {
+                            'apikey': KEY,
+                            'Authorization': `Bearer ${KEY}`,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=minimal'
+                        },
+                        body: JSON.stringify({ last_incident_date: todayStr })
+                    });
 
-                if (error) {
-                    alert("Ошибка при сбросе: " + error.message);
-                } else {
+                    if (!response.ok) throw new Error('Не удалось обнулить');
                     updateCounter();
+                } catch (err) {
+                    alert("Ошибка при сбросе: " + err.message);
                 }
             }
         }
@@ -160,11 +168,8 @@
             return 'дней';
         }
 
-        // Запуск при старте
         updateCounter();
-        // Автообновление каждые 15 секунд
         setInterval(updateCounter, 15000);
     </script>
-
 </body>
 </html>
