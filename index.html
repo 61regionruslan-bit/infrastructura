@@ -92,7 +92,7 @@
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxcmxtZ3NnbGFzYmlnaWZzZ2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkxNDE4MjMsImV4cCI6MjI0NDcxNzgyM30.WKHQxVArYfsdhv1Zt5V8hB3_NJyG_nuoNzDRBs8WMI8"; 
 
         // Инициализация строго через глобальный объект библиотеки
-        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         async function updateCounter() {
             try {
