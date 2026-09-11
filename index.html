@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Мониторинг инфраструктуры</title>
-    <!-- Подключаем официальный клиент Supabase -->
-    <script src="https://jsdelivr.net"></script>
+    <!-- Подключаем стабильную версию библиотеки Supabase -->
+    <script src="https://unpkg.com"></script>
     <style>
         body {
             background-color: #121212;
@@ -46,7 +46,6 @@
             font-weight: bold;
             color: #4caf50;
             margin: 10px 0;
-            transition: color 0.3s ease;
         }
         .counter-card.danger .number {
             color: #ff3333;
@@ -74,10 +73,6 @@
         .incident-btn:hover {
             background-color: #e02424;
             transform: translateY(-2px);
-            box-shadow: 0 7px 20px rgba(255, 51, 51, 0.6);
-        }
-        .incident-btn:active {
-            transform: translateY(1px);
         }
     </style>
 </head>
@@ -86,66 +81,70 @@
     <div class="counter-card" id="card">
         <div class="title">Статус инфраструктуры</div>
         <div class="number" id="days-counter">...</div>
-        <div class="subtitle" id="days-text">загрузка...</div>
+        <div class="subtitle" id="days-text">установление связи...</div>
     </div>
 
     <button class="incident-btn" onclick="registerIncident()">Сбой!</button>
 
     <script>
-        // === ВСТАВЬТЕ СЮДА СВОИ ДАННЫЕ ИЗ SUPABASE ===
-        const SUPABASE_URL = "https://uqrlmgsglasbigifsgdw.supabase.co/rest/v1/";
-        const SUPABASE_KEY = "sb_publishable_SiCyHcMqCZLZzg4spTYc4Q_ChBwdjFe";
+        // === ВНИМАТЕЛЬНО ВСТАВЬТЕ СЮДА ВАШИ КЛЮЧИ ===
+        const SUPABASE_URL = "https://uqrlmgsglasbigifsgdw.supabase.co/rest/v1/"; 
+        const SUPABASE_KEY = "sb_publishable_SiCyHcMqCZLZzg4spTYc4Q_ChBwdjFe"; 
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // Инициализация строго через глобальный объект библиотеки
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // Получение даты с сервера и обновление экрана
         async function updateCounter() {
-            const { data, error } = await supabase
-                .from('status_counter')
-                .select('last_incident_date')
-                .eq('id', 1)
-                .single();
+            try {
+                const { data, error } = await supabaseClient
+                    .from('status_counter')
+                    .select('last_incident_date')
+                    .eq('id', 1);
 
-            if (error) {
-                console.error("Ошибка получения данных:", error);
-                return;
-            }
+                if (error) throw error;
+                
+                if (!data || data.length === 0) {
+                    document.getElementById('days-text').innerText = "Ошибка: Строка id=1 не найдена в БД";
+                    return;
+                }
 
-            const lastDate = new Date(data.last_incident_date);
-            const today = new Date();
-            
-            lastDate.setHours(0, 0, 0, 0);
-            today.setHours(0, 0, 0, 0);
-            
-            const diffTime = today - lastDate;
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-            const resultDays = diffDays < 0 ? 0 : diffDays;
-            
-            document.getElementById('days-counter').innerText = resultDays;
-            
-            const card = document.getElementById('card');
-            if (resultDays === 0) {
-                card.classList.add('danger');
-            } else {
-                card.classList.remove('danger');
+                const lastDate = new Date(data[0].last_incident_date);
+                const today = new Date();
+                
+                lastDate.setHours(0, 0, 0, 0);
+                today.setHours(0, 0, 0, 0);
+                
+                const diffTime = today - lastDate;
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                const resultDays = diffDays < 0 ? 0 : diffDays;
+                
+                document.getElementById('days-counter').innerText = resultDays;
+                
+                const card = document.getElementById('card');
+                if (resultDays === 0) {
+                    card.classList.add('danger');
+                } else {
+                    card.classList.remove('danger');
+                }
+                
+                document.getElementById('days-text').innerText = getDaysWord(resultDays) + " без сбоев";
+            } catch (err) {
+                console.error("Детали ошибки:", err);
+                document.getElementById('days-text').innerText = "Ошибка: " + (err.message || "нет связи с БД");
             }
-            
-            document.getElementById('days-text').innerText = getDaysWord(resultDays) + " без сбоев";
         }
 
-        // Запись текущей даты в базу данных при клике
         async function registerIncident() {
-            const confirmCrash = confirm("Вы уверены, что прод упал и нужно обнулить счетчик для ВСЕЙ команды?");
-            if (confirmCrash) {
+            if (confirm("Вы уверены, что хотите обнулить счетчик для всей команды?")) {
                 const todayStr = new Date().toISOString().split('T')[0];
                 
-                const { error } = await supabase
+                const { error } = await supabaseClient
                     .from('status_counter')
                     .update({ last_incident_date: todayStr })
                     .eq('id', 1);
 
                 if (error) {
-                    alert("Не удалось обнулить счетчик: " + error.message);
+                    alert("Ошибка при сбросе: " + error.message);
                 } else {
                     updateCounter();
                 }
@@ -161,11 +160,10 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
             return 'дней';
         }
 
-        // Обновляем данные при открытии страницы
+        // Запуск при старте
         updateCounter();
-        
-        // Раз в 30 секунд проверяем базу данных на предмет новых сбросов от коллег
-        setInterval(updateCounter, 30000);
+        // Автообновление каждые 15 секунд
+        setInterval(updateCounter, 15000);
     </script>
 
 </body>
