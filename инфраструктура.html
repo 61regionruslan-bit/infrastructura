@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мониторинг инфраструктуры</title>
+    <!-- Подключаем официальный клиент Supabase -->
+    <script src="https://jsdelivr.net"></script>
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            flex-direction: column;
+            gap: 25px;
+        }
+        .counter-card {
+            background-color: #1e1e1e;
+            border: 4px solid #4caf50;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(76, 175, 80, 0.2);
+            max-width: 400px;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+        .counter-card.danger {
+            border-color: #ff3333;
+            box-shadow: 0 10px 30px rgba(255, 51, 51, 0.3);
+        }
+        .title {
+            font-size: 1.5rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+            color: #cccccc;
+        }
+        .number {
+            font-size: 8rem;
+            font-weight: bold;
+            color: #4caf50;
+            margin: 10px 0;
+            transition: color 0.3s ease;
+        }
+        .counter-card.danger .number {
+            color: #ff3333;
+        }
+        .subtitle {
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            color: #888888;
+            margin-top: 20px;
+        }
+        .incident-btn {
+            background-color: #ff3333;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(255, 51, 51, 0.4);
+            transition: all 0.2s ease;
+        }
+        .incident-btn:hover {
+            background-color: #e02424;
+            transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(255, 51, 51, 0.6);
+        }
+        .incident-btn:active {
+            transform: translateY(1px);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="counter-card" id="card">
+        <div class="title">Статус инфраструктуры</div>
+        <div class="number" id="days-counter">...</div>
+        <div class="subtitle" id="days-text">загрузка...</div>
+    </div>
+
+    <button class="incident-btn" onclick="registerIncident()">Сбой!</button>
+
+    <script>
+        // === ВСТАВЬТЕ СЮДА СВОИ ДАННЫЕ ИЗ SUPABASE ===
+        const SUPABASE_URL = "https://uqrlmgsglasbigifsgdw.supabase.co/rest/v1/";
+        const SUPABASE_KEY = "sb_publishable_SiCyHcMqCZLZzg4spTYc4Q_ChBwdjFe";
+
+        const supabase = jsonDoc = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // Получение даты с сервера и обновление экрана
+        async function updateCounter() {
+            const { data, error } = await supabase
+                .from('status_counter')
+                .select('last_incident_date')
+                .eq('id', 1)
+                .single();
+
+            if (error) {
+                console.error("Ошибка получения данных:", error);
+                return;
+            }
+
+            const lastDate = new Date(data.last_incident_date);
+            const today = new Date();
+            
+            lastDate.setHours(0, 0, 0, 0);
+            today.setHours(0, 0, 0, 0);
+            
+            const diffTime = today - lastDate;
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            const resultDays = diffDays < 0 ? 0 : diffDays;
+            
+            document.getElementById('days-counter').innerText = resultDays;
+            
+            const card = document.getElementById('card');
+            if (resultDays === 0) {
+                card.classList.add('danger');
+            } else {
+                card.classList.remove('danger');
+            }
+            
+            document.getElementById('days-text').innerText = getDaysWord(resultDays) + " без сбоев";
+        }
+
+        // Запись текущей даты в базу данных при клике
+        async function registerIncident() {
+            const confirmCrash = confirm("Вы уверены, что прод упал и нужно обнулить счетчик для ВСЕЙ команды?");
+            if (confirmCrash) {
+                const todayStr = new Date().toISOString().split('T')[0];
+                
+                const { error } = await supabase
+                    .from('status_counter')
+                    .update({ last_incident_date: todayStr })
+                    .eq('id', 1);
+
+                if (error) {
+                    alert("Не удалось обнулить счетчик: " + error.message);
+                } else {
+                    updateCounter();
+                }
+            }
+        }
+
+        function getDaysWord(number) {
+            const lastDigit = number % 10;
+            const lastTwoDigits = number % 100;
+            if (lastTwoDigits >= 11 && lastTwoDigits <= 14) return 'дней';
+            if (lastDigit === 1) return 'день';
+            if (lastDigit >= 2 && lastDigit <= 4) return 'дня';
+            return 'дней';
+        }
+
+        // Обновляем данные при открытии страницы
+        updateCounter();
+        
+        // Раз в 30 секунд проверяем базу данных на предмет новых сбросов от коллег
+        setInterval(updateCounter, 30000);
+    </script>
+
+</body>
+</html>
